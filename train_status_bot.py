@@ -1,18 +1,15 @@
-import os
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # =========================
-# CONFIG
+# 🔐 BOT CONFIG (HARDCODED)
 # =========================
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    raise RuntimeError("❌ BOT_TOKEN not found in Railway Variables")
+BOT_TOKEN = "7432992828:AAGHEP1uQuhiATRA8Ns63-TylQRe4vq9crw"   # from @BotFather
+ADMIN_ID = 1609002531                # your Telegram numeric ID
 
-# 🔐 ADMIN TELEGRAM USER IDs
-ADMINS = {123456789}  # replace with your Telegram numeric ID
+ADMINS = {ADMIN_ID}
 
-# Runtime memory (lightweight)
+# Runtime memory (light & simple)
 USERS = set()
 PENDING = set()
 APPROVED = set()
@@ -38,7 +35,7 @@ def main_keyboard(is_admin=False):
 # HELPERS
 # =========================
 def is_admin(uid): return uid in ADMINS
-def is_allowed(uid): return uid not in BANNED
+def allowed(uid): return uid not in BANNED
 
 def minutes_to_hm(m):
     if m <= 0:
@@ -47,9 +44,8 @@ def minutes_to_hm(m):
 
 def fetch_train_status(train_no, date):
     """
-    SAFE PLACEHOLDER
-    (Keeps Railway stable, no overload)
-    Replace later if you add real data source.
+    SAFE PLACEHOLDER (no overload)
+    Replace later if you add real data source
     """
     return {
         "terminated": False,
@@ -89,7 +85,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if not is_allowed(uid):
+    if not allowed(uid):
         return
 
     msg = "📋 Train List\n\nS.No  Train   Date\n"
@@ -101,7 +97,7 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def single_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if not is_allowed(uid):
+    if not allowed(uid):
         return
 
     if uid not in APPROVED and not is_admin(uid):
@@ -167,48 +163,3 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
-    uid = int(context.args[0])
-    USERS.discard(uid)
-    APPROVED.discard(uid)
-    await update.message.reply_text(f"🗑 Removed: {uid}")
-
-async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    uid = int(context.args[0])
-    BANNED.add(uid)
-    await update.message.reply_text(f"🚫 Banned: {uid}")
-
-async def admin_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    msg = " ".join(context.args)
-    for uid in USERS:
-        try:
-            await context.bot.send_message(uid, msg)
-        except:
-            pass
-    await update.message.reply_text("📢 Message sent to all users")
-
-# =========================
-# MAIN
-# =========================
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("list", list_cmd))
-    app.add_handler(CommandHandler("single", single_cmd))
-
-    app.add_handler(CommandHandler("pending", pending))
-    app.add_handler(CommandHandler("approved", approved))
-    app.add_handler(CommandHandler("approve", approve))
-    app.add_handler(CommandHandler("delete", delete))
-    app.add_handler(CommandHandler("ban", ban))
-    app.add_handler(CommandHandler("admin", admin_broadcast))
-
-    print("✅ Bot running")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
