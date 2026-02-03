@@ -1,30 +1,24 @@
 import os
-from telegram import (
-    Update,
-    ReplyKeyboardMarkup,
-    KeyboardButton
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes
-)
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # =========================
 # CONFIG
 # =========================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN not found in Railway Variables")
 
-# 🔐 ADMIN IDS (replace with your Telegram numeric ID)
-ADMINS = {123456789}
+# 🔐 ADMIN TELEGRAM USER IDs
+ADMINS = {123456789}  # replace with your Telegram numeric ID
 
-# Runtime storage (lightweight)
+# Runtime memory (lightweight)
 USERS = set()
 PENDING = set()
 APPROVED = set()
 BANNED = set()
 
-# Train list (for /list)
+# Train list shown in /list
 TRAIN_LIST = [
     (1, "22222", "03/02/2026"),
     (2, "12261", "02/02/2026"),
@@ -34,10 +28,8 @@ TRAIN_LIST = [
 # =========================
 # KEYBOARD
 # =========================
-def keyboard(is_admin=False):
-    rows = [
-        [KeyboardButton("/Single"), KeyboardButton("/List")]
-    ]
+def main_keyboard(is_admin=False):
+    rows = [[KeyboardButton("/Single"), KeyboardButton("/List")]]
     if is_admin:
         rows.append([KeyboardButton("/Admin")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
@@ -45,22 +37,19 @@ def keyboard(is_admin=False):
 # =========================
 # HELPERS
 # =========================
-def is_admin(uid):
-    return uid in ADMINS
-
-def allowed(uid):
-    return uid not in BANNED
+def is_admin(uid): return uid in ADMINS
+def is_allowed(uid): return uid not in BANNED
 
 def minutes_to_hm(m):
     if m <= 0:
         return "On Time"
     return f"{m//60}h {m%60}m"
 
-def fetch_train_status(train, date):
+def fetch_train_status(train_no, date):
     """
-    SAFE PLACEHOLDER LOGIC
-    Keeps server light & stable.
-    Can be upgraded later.
+    SAFE PLACEHOLDER
+    (Keeps Railway stable, no overload)
+    Replace later if you add real data source.
     """
     return {
         "terminated": False,
@@ -92,7 +81,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         msg,
-        reply_markup=keyboard(is_admin(uid))
+        reply_markup=main_keyboard(is_admin(uid))
     )
 
 # =========================
@@ -100,7 +89,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if not allowed(uid):
+    if not is_allowed(uid):
         return
 
     msg = "📋 Train List\n\nS.No  Train   Date\n"
@@ -112,7 +101,7 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def single_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if not allowed(uid):
+    if not is_allowed(uid):
         return
 
     if uid not in APPROVED and not is_admin(uid):
@@ -156,19 +145,19 @@ async def single_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
-    msg = "🕒 Pending Users:\n" + "\n".join(map(str, PENDING)) if PENDING else "No pending users"
-    await update.message.reply_text(msg)
+    await update.message.reply_text(
+        "🕒 Pending Users:\n" + "\n".join(map(str, PENDING)) if PENDING else "No pending users"
+    )
 
 async def approved(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
-    msg = "✅ Approved Users:\n" + "\n".join(map(str, APPROVED)) if APPROVED else "No approved users"
-    await update.message.reply_text(msg)
+    await update.message.reply_text(
+        "✅ Approved Users:\n" + "\n".join(map(str, APPROVED)) if APPROVED else "No approved users"
+    )
 
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        return
-    if not context.args:
         return
     uid = int(context.args[0])
     PENDING.discard(uid)
@@ -179,8 +168,8 @@ async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
     uid = int(context.args[0])
-    APPROVED.discard(uid)
     USERS.discard(uid)
+    APPROVED.discard(uid)
     await update.message.reply_text(f"🗑 Removed: {uid}")
 
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
