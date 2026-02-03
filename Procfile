@@ -1,1 +1,1 @@
-worker: python train_status_bot.py
+worker: python bot.py
