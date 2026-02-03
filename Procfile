@@ -1,0 +1,1 @@
+worker: python train_status_bot.py
